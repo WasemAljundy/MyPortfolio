@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "Portfolio project item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "function": { "type": "string" },
+        "technologies": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "imageUrls": { "type": "array", "items": { "type": "string" } },
+        "liveLink": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "description", "function", "technologies", "category", "imageUrls"]
+    },
+    "Stats": {
+      "title": "Stats",
+      "description": "Dashboard statistics",
+      "type": "object",
+      "properties": {
+        "projectsCount": { "type": "number" },
+        "experienceYears": { "type": "number" },
+        "clientsCount": { "type": "number" }
+      },
+      "required": ["projectsCount", "experienceYears", "clientsCount"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin roles mapping",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "isAdmin": { "type": "boolean" }
+      },
+      "required": ["email", "isAdmin"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Stores portfolio projects."
+    },
+    "/stats/{statId}": {
+      "schema": { "$ref": "#/entities/Stats" },
+      "description": "Stores global stats (e.g. 'global' document)."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Stores admin status per user ID."
+    }
+  }
+}

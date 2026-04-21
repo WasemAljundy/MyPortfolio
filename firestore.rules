@@ -1,0 +1,102 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // --- Primitives & Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    
+    // The designated admin identified in the BRD
+    function isBootstrappedAdmin() {
+      // We allow the bootstrap admin based on email
+      return isSignedIn() && request.auth.token.email == 'wasemaljundy22@gmail.com';
+    }
+    
+    function isAdmin() {
+      return isBootstrappedAdmin() || 
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // --- Entity Validators ---
+    function isValidProject(data) {
+      return data.keys().hasAll(['name', 'description', 'function', 'technologies', 'category', 'imageUrls']) &&
+             data.name is string && data.name.size() <= 150 &&
+             data.description is string && data.description.size() <= 10000 &&
+             data.function is string && data.function.size() <= 500 &&
+             data.technologies is list && data.technologies.size() <= 100 &&
+             data.category is string && data.category in ['delivery', 'education', 'social', 'shopping', 'services', 'other'] &&
+             data.imageUrls is list && data.imageUrls.size() <= 50 &&
+             (data.get('liveLink', '') is string) &&
+             (data.get('order', 0) is number) &&
+             (data.get('createdAt', request.time) is timestamp);
+    }
+    
+    function isValidStat(data) {
+      return data.keys().hasAll(['projectsCount', 'experienceYears', 'clientsCount']) &&
+             data.projectsCount is number &&
+             data.experienceYears is number &&
+             data.clientsCount is number;
+    }
+    
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'isAdmin']) &&
+             data.email is string && data.email.size() <= 150 &&
+             data.isAdmin is bool;
+    }
+
+    // --- Path Rules ---
+    
+    // Projects Collection
+    match /projects/{projectId} {
+      // Anyone can read projects on a portfolio website
+      allow read: if true;
+      
+      allow create: if isAdmin() && 
+                    isValidId(projectId) && 
+                    isValidProject(incoming()) && 
+                    incoming().createdAt == request.time;
+                    
+      allow update: if isAdmin() && 
+                    isValidId(projectId) && 
+                    isValidProject(incoming()) &&
+                    incoming().createdAt == existing().createdAt;
+                    
+      allow delete: if isAdmin() && isValidId(projectId);
+    }
+    
+    // Stats Collection
+    match /stats/{statId} {
+      // Anyone can read the global stats for the homepage
+      allow read: if true;
+      
+      allow create, update: if isAdmin() && 
+                               isValidId(statId) && 
+                               isValidStat(incoming());
+                               
+      allow delete: if isAdmin() && isValidId(statId);
+    }
+    
+    // Admins Collection
+    match /admins/{adminId} {
+      // Admins read all admins; users can read their own doc if needed
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == adminId);
+      
+      allow create, update: if isAdmin() && 
+                               isValidId(adminId) && 
+                               isValidAdmin(incoming());
+                               
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+  }
+}
